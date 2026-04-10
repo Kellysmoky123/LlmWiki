@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useSettingsStore } from "./store/settings.store";
 import { useUIStore } from "./store/ui.store";
-import { Settings, Search, Database, PlusCircle, LayoutDashboard, ShieldCheck, Loader2 } from "lucide-react";
+import { Settings, Search, Database, PlusCircle, LayoutDashboard, ShieldCheck, Loader2, AlertCircle, CheckCircle2, X } from "lucide-react";
 import SettingsPage from "./pages/SettingsPage";
 import HomePage from "./pages/HomePage";
 import IngestPage from "./pages/IngestPage";
@@ -156,32 +156,62 @@ export default App;
 
 function GlobalStatusBar() {
   const { ingest, query, lint } = useUIStore();
+  const [visible, setVisible] = useState(false);
+  const [isDone, setIsDone] = useState(false);
   
-  const isActive = ingest.isIngesting || query.isQuerying || lint.status !== 'idle';
-  if (!isActive) return null;
-
+  const isActive = ingest.isIngesting || query.isQuerying || (lint.status === 'diagnosing' || lint.status === 'fixing');
   const error = ingest.error || query.error || lint.error;
   const progress = ingest.progress || query.progress || (lint.status === 'fixing' ? 'Applying fixes...' : lint.status === 'diagnosing' ? 'Scanning wiki...' : '');
   const isWorking = ingest.isIngesting || query.isQuerying || lint.status === 'diagnosing' || lint.status === 'fixing';
 
+  // Manage visibility timeout for "Done" state
+  useEffect(() => {
+    if (isWorking) {
+      setVisible(true);
+      setIsDone(false);
+    } else if (progress || error) {
+      setVisible(true);
+      setIsDone(true);
+      // Auto-hide success messages after 8 seconds, but keep errors visible
+      if (!error) {
+        const timer = setTimeout(() => setVisible(false), 8000);
+        return () => clearTimeout(timer);
+      }
+    } else {
+      setVisible(false);
+    }
+  }, [isWorking, progress, error]);
+
+  if (!visible) return null;
+
   return (
-    <div className="px-4 pb-2 lg:pb-0">
+    <div className="px-4 pb-4 lg:pb-0">
       <div className={`rounded-xl border shadow-2xl backdrop-blur-xl p-3 flex items-center gap-3 animate-in slide-in-from-bottom-5 w-full max-w-md ${
-        error ? "border-red-500/20 bg-red-900/40 text-red-100" : "border-aqua-cyan/20 bg-black/80 text-aqua-cyan"
+        error ? "border-red-500/40 bg-red-900/60 text-red-100" : "border-aqua-cyan/20 bg-black/90 text-aqua-cyan"
       }`}>
         {isWorking ? (
           <Loader2 className="animate-spin shrink-0" size={16} />
+        ) : error ? (
+          <AlertCircle className="shrink-0 text-red-400" size={16} />
         ) : (
-          <Database className="shrink-0" size={16} />
+          <CheckCircle2 className="shrink-0 text-green-400" size={16} />
         )}
         <div className="flex-1 min-w-0">
           <p className="text-[9px] font-black uppercase tracking-widest opacity-50">
-            {ingest.isIngesting ? 'Ingest Agent' : query.isQuerying ? 'Query Agent' : 'Lint Agent'}
+            {ingest.isIngesting || (!query.isQuerying && !lint.status.includes('diagnos')) ? 'Ingest Agent' : query.isQuerying ? 'Query Agent' : 'Lint Agent'}
           </p>
           <p className="text-xs text-white truncate font-medium">
-            {error || progress || "Agent ready"}
+            {error || progress || "Task complete"}
           </p>
         </div>
+        {isDone && (
+          <button 
+            onClick={() => setVisible(false)}
+            className="p-1 hover:bg-white/10 rounded transition-colors"
+          >
+            <X size={14} className="text-white/40" />
+          </button>
+        )}
       </div>
     </div>
   );

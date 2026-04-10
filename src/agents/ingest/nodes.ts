@@ -55,19 +55,40 @@ export async function planPagesNode(state: IngestState): Promise<Partial<IngestS
 
   if (!result.ok) throw new Error(`Planning failed: ${result.error}`);
 
-  // Parse JSON from LLM response (strip any accidental markdown fences)
+  // Fuzzy JSON extraction: Try to find anything between { and } if direct parse fails
   let plan: WikiPagePlan[] = [];
+  let raw = result.data.trim();
+  
   try {
-    const raw = result.data.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    // 1. Aggressive cleaning
+    raw = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    
+    // 2. Extract block if there's conversational filler
+    const firstBrace = raw.indexOf('{');
+    const lastBrace = raw.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      raw = raw.slice(firstBrace, lastBrace + 1);
+    }
+
     const parsed = JSON.parse(raw);
     plan = parsed.pages || [];
   } catch (e) {
-    console.error("[planPages] Failed to parse plan JSON:", result.data);
-    throw new Error(`Invalid plan JSON from LLM: ${e}`);
+    console.warn("[planPages] JSON parse failed, trying direct array parse:", e);
+    try {
+      // Fallback for when LLM just returns the array []
+      const parsed = JSON.parse(raw);
+      plan = Array.isArray(parsed) ? parsed : [];
+    } catch (e2) {
+       throw new Error(`Invalid plan JSON: ${e2}. RAW: ${raw.slice(0, 100)}...`);
+    }
   }
 
-  console.log(`[planPages] Plan: ${plan.map(p => `${p.action}:${p.filename}`).join(", ")}`);
-  return { plan, status: `Planned ${plan.length} pages` };
+  if (plan.length === 0) {
+    console.warn("[planPages] LLM returned 0 pages in the plan.");
+  }
+
+  console.log(`[planPages] Total planned: ${plan.length}`);
+  return { plan, status: `Analysing source... Found ${plan.length} topics.` };
 }
 
 // ─── STEP 3: Write each planned page ─────────────────────────────────────────
@@ -77,24 +98,31 @@ export async function writePagesNode(state: IngestState): Promise<Partial<Ingest
   const truncated = state.sourceText.slice(0, 200000);
   const writtenPages: string[] = [];
 
+  if (state.plan.length === 0) {
+    return { writtenPages: [], status: "No novel topics found to save." };
+  }
+
   // Collect all tags currently in the index
   const indexResult = await readIndex(state.wikiPath);
   const existingTags = extractTagsFromIndex(indexResult.ok ? indexResult.data : "");
 
   for (const pageplan of state.plan) {
-    const filePath = `wiki/${pageplan.filename}.md`;
+    // Sanitary check for filename
+    const safeFilename = generateSlug(pageplan.filename || pageplan.title || "Untitled Topic");
+    const filePath = `wiki/${safeFilename}.md`;
 
-    const relatedTopicsLinks = pageplan.relatedTopics
-      .map(t => `- [[${t}]] — Related topic`)
+    const relatedTopicsLinks = (pageplan.relatedTopics || [])
+      .map(t => `- [[${t}]]`)
       .join("\n");
 
-    const relatedTopicsText = pageplan.relatedTopics.join(", ");
+    const relatedTopicsText = (pageplan.relatedTopics || []).join(", ");
 
     let content: string;
 
     if (pageplan.action === "update" && pageplan.existingFile) {
-      // Read existing page
-      const existingResult = await readPage(state.wikiPath, `wiki/${pageplan.existingFile}.md`);
+      // Ensure we target the existing file correctly
+      const existingPagePath = `wiki/${pageplan.existingFile}.md`;
+      const existingResult = await readPage(state.wikiPath, existingPagePath);
       const existingContent = existingResult.ok ? existingResult.data : "";
 
       const result = await runPrompt(null, INGEST_UPDATE_PAGE_PROMPT, {
@@ -105,17 +133,17 @@ export async function writePagesNode(state: IngestState): Promise<Partial<Ingest
       });
 
       if (!result.ok) {
-        console.error(`[writePages] Update failed for ${pageplan.filename}:`, result.error);
-        continue; // skip this page, don't abort whole pipeline
+        console.error(`[writePages] Update failed for ${safeFilename}:`, result.error);
+        continue; 
       }
       content = result.data;
     } else {
       // Create new page
       const result = await runPrompt(null, INGEST_WRITE_PAGE_PROMPT, {
-        title: pageplan.title,
+        title: pageplan.title || safeFilename,
         sourceText: truncated,
-        relatedTopics: relatedTopicsText,
-        relatedTopicsLinks,
+        relatedTopics: relatedTopicsText || "None",
+        relatedTopicsLinks: relatedTopicsLinks || "_No related topics yet_",
         sourceFile: `[[sources/${state.sourceFileBasename}]]`,
         sourceFileBasename: state.sourceFileBasename,
         existingTags: existingTags.join(", ") || "none yet",
@@ -123,7 +151,7 @@ export async function writePagesNode(state: IngestState): Promise<Partial<Ingest
       });
 
       if (!result.ok) {
-        console.error(`[writePages] Write failed for ${pageplan.filename}:`, result.error);
+        console.error(`[writePages] Write failed for ${safeFilename}:`, result.error);
         continue;
       }
       content = result.data;
@@ -132,13 +160,13 @@ export async function writePagesNode(state: IngestState): Promise<Partial<Ingest
     const writeResult = await writePage(state.wikiPath, filePath, content);
     if (writeResult.ok) {
       writtenPages.push(filePath);
-      console.log(`[writePages] Wrote: ${filePath}`);
+      console.log(`[writePages] Managed: ${filePath}`);
     } else {
-      console.error(`[writePages] Failed to write ${filePath}:`, writeResult.error);
+      console.error(`[writePages] Write error for ${filePath}:`, writeResult.error);
     }
   }
 
-  return { writtenPages, status: `Wrote ${writtenPages.length} wiki pages` };
+  return { writtenPages, status: `Processed ${writtenPages.length} knowledge units.` };
 }
 
 // ─── STEP 4: Update index.md ──────────────────────────────────────────────────
