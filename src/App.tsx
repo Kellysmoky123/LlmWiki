@@ -1,7 +1,8 @@
 // src/App.tsx
 import { useState, useEffect } from "react";
 import { useSettingsStore } from "./store/settings.store";
-import { Settings, Search, Database, PlusCircle, LayoutDashboard, ShieldCheck } from "lucide-react";
+import { useUIStore } from "./store/ui.store";
+import { Settings, Search, Database, PlusCircle, LayoutDashboard, ShieldCheck, Loader2 } from "lucide-react";
 import SettingsPage from "./pages/SettingsPage";
 import HomePage from "./pages/HomePage";
 import IngestPage from "./pages/IngestPage";
@@ -61,8 +62,8 @@ function App() {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-black text-white selection:bg-aqua-cyan/30 flex-col lg:flex-row">
       
-      {/* Mobile Header (Branding only) */}
-      <div className="lg:hidden flex items-center justify-center px-6 py-4 border-b border-white/5 bg-amoled-gray/50 backdrop-blur-md sticky top-0 z-50">
+      {/* Mobile Header (Left-aligned) */}
+      <div className="lg:hidden flex items-center justify-start px-8 py-4 border-b border-white/5 bg-amoled-gray/50 backdrop-blur-md sticky top-0 z-50">
         <h1 className="bg-gradient-to-r from-aqua-cyan to-aqua-dark bg-clip-text text-xl font-black text-transparent">
           LLM WIKI
         </h1>
@@ -115,32 +116,77 @@ function App() {
           </div>
         ) : (
           <div className="h-full overflow-y-auto p-4 lg:p-8 flex-1">
-            <div className="mx-auto max-w-5xl animate-fade-in pb-20 lg:pb-0">
+            <div className="mx-auto max-w-5xl animate-fade-in pb-40 lg:pb-0">
               {renderTab()}
             </div>
           </div>
         )}
       </main>
 
-      {/* Mobile Bottom Navigation (Persistent) */}
-      <nav className="lg:hidden flex border-t border-white/5 bg-amoled-gray px-2 py-1 flex-shrink-0">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id)}
-            className={`flex flex-1 flex-col items-center justify-center gap-1 rounded-lg py-2 transition-all duration-200 ${
-              activeTab === item.id
-                ? "text-aqua-cyan"
-                : "text-white/40"
-            }`}
-          >
-            <item.icon size={18} />
-            <span className="text-[9px] font-bold uppercase tracking-tighter">{item.label}</span>
-          </button>
-        ))}
-      </nav>
+      {/* Mobile Navigation & Status Container */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
+        <div className="pointer-events-auto">
+          <GlobalStatusBar />
+          <nav className="flex border-t border-white/5 bg-amoled-gray/80 backdrop-blur-xl px-2 py-1">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex flex-1 flex-col items-center justify-center gap-1 rounded-lg py-2 transition-all duration-200 ${
+                  activeTab === item.id ? "text-aqua-cyan" : "text-white/40"
+                }`}
+              >
+                <item.icon size={18} />
+                <span className="text-[9px] font-bold uppercase tracking-tighter">{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Desktop Global Status Area */}
+      <div className="hidden lg:block fixed bottom-8 right-8 z-50">
+        <GlobalStatusBar />
+      </div>
     </div>
   );
 }
 
 export default App;
+
+function GlobalStatusBar() {
+  const { 
+    ingestStatus, ingestProgress, ingestError, 
+    queryStatus, queryProgress, queryError, 
+    lintStatus, lintProgress, lintError 
+  } = useUIStore();
+  
+  const isActive = ingestStatus !== 'idle' || queryStatus !== 'idle' || lintStatus !== 'idle';
+  if (!isActive) return null;
+
+  const error = ingestError || queryError || lintError;
+  const progress = ingestProgress || queryProgress || lintProgress;
+  const isWorking = ingestStatus === 'ingesting' || queryStatus === 'searching' || lintStatus === 'diagnosing' || lintStatus === 'fixing';
+
+  return (
+    <div className="px-4 pb-2 lg:pb-0">
+      <div className={`rounded-xl border shadow-2xl backdrop-blur-xl p-3 flex items-center gap-3 animate-in slide-in-from-bottom-5 w-full max-w-md ${
+        error ? "border-red-500/20 bg-red-900/40 text-red-100" : "border-aqua-cyan/20 bg-black/80 text-aqua-cyan"
+      }`}>
+        {isWorking ? (
+          <Loader2 className="animate-spin shrink-0" size={16} />
+        ) : (
+          <Database className="shrink-0" size={16} />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-[9px] font-black uppercase tracking-widest opacity-50">
+            {ingestStatus !== 'idle' ? 'Ingest Agent' : queryStatus !== 'idle' ? 'Query Agent' : 'Lint Agent'}
+          </p>
+          <p className="text-xs text-white truncate font-medium">
+            {error || progress || "Ready"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

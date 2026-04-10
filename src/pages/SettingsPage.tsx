@@ -2,11 +2,16 @@
 import { useState } from "react";
 import { useSettingsStore, Settings } from "../store/settings.store";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Folder, Save, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Folder, Save, AlertCircle, CheckCircle2, Smartphone } from "lucide-react";
 import { ensureWikiStructure } from "../wiki/writer";
+import { documentDir, join } from "@tauri-apps/api/path";
+import { platform } from "@tauri-apps/plugin-os";
 
 export default function SettingsPage() {
   const settings = useSettingsStore();
+  const currentPlatform = platform();
+  const isMobile = currentPlatform === "android" || currentPlatform === "ios";
+
   const [localSettings, setLocalSettings] = useState<Partial<Settings>>({
     provider: settings.provider,
     apiKey: settings.apiKey,
@@ -20,18 +25,37 @@ export default function SettingsPage() {
   const [status, setStatus] = useState<{ type: "idle" | "success" | "error", message: string }>({ type: "idle", message: "" });
 
   const handlePickFolder = async () => {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-    });
-    if (selected && typeof selected === "string") {
-      await settings.setWikiPath(selected);
-      const result = await ensureWikiStructure(selected);
-      if (result.ok) {
-        setStatus({ type: "success", message: "Wiki folder initialized successfully!" });
-      } else {
-        setStatus({ type: "error", message: `Failed to initialize wiki: ${result.error}` });
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+      });
+      if (selected && typeof selected === "string") {
+        await handleSetPath(selected);
       }
+    } catch (err) {
+      console.error("Picker error:", err);
+      setStatus({ type: "error", message: "Folder picker failed. Try manual path or internal storage." });
+    }
+  };
+
+  const handleAutoSetInternal = async () => {
+    try {
+      const docDir = await documentDir();
+      const wikiDir = await join(docDir, "LLMWiki");
+      await handleSetPath(wikiDir);
+    } catch (err) {
+      setStatus({ type: "error", message: "Failed to get internal storage path." });
+    }
+  };
+
+  const handleSetPath = async (path: string) => {
+    await settings.setWikiPath(path);
+    const result = await ensureWikiStructure(path);
+    if (result.ok) {
+      setStatus({ type: "success", message: "Wiki folder initialized successfully!" });
+    } else {
+      setStatus({ type: "error", message: `Failed to initialize wiki: ${result.error}` });
     }
   };
 
@@ -68,23 +92,35 @@ export default function SettingsPage() {
           <h3 className="text-lg font-bold text-white uppercase tracking-wider text-[10px] text-white/50">Storage</h3>
           <div className="glass-card p-6">
             <label className="mb-2 block text-sm font-medium text-white/70">Wiki Folder Path</label>
-            <div className="flex gap-4">
-              <input
-                type="text"
-                readOnly
-                value={settings.wikiPath}
-                className="flex-1 rounded-lg border border-white/5 bg-black/50 px-4 py-2 text-sm text-white/50 outline-none"
-                placeholder="No folder selected"
-              />
-              <button
-                onClick={handlePickFolder}
-                className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-white/20"
-              >
-                <Folder size={18} />
-                Select Folder
-              </button>
+            <div className="flex flex-col gap-4">
+              <div className="flex gap-4">
+                <input
+                  type="text"
+                  value={settings.wikiPath}
+                  onChange={(e) => settings.setWikiPath(e.target.value)}
+                  className="flex-1 rounded-lg border border-white/5 bg-black/50 px-4 py-2 text-sm text-white outline-none focus:border-aqua-cyan/50 h-10"
+                  placeholder="e.g. /home/user/wiki or Documents/LLMWiki"
+                />
+                <button
+                  onClick={handlePickFolder}
+                  title="Pick folder via dialog"
+                  className="flex items-center justify-center h-10 w-12 rounded-lg bg-white/10 text-white transition-all hover:bg-white/20 shrink-0"
+                >
+                  <Folder size={18} />
+                </button>
+              </div>
+
+              {isMobile && (
+                <button
+                  onClick={handleAutoSetInternal}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-aqua-cyan/20 bg-aqua-cyan/5 py-3 text-xs font-bold text-aqua-cyan transition-all hover:bg-aqua-cyan/10"
+                >
+                  <Smartphone size={16} />
+                  Set to Internal App Storage (Recommended for Android)
+                </button>
+              )}
             </div>
-            <p className="mt-2 text-xs text-white/30">All wiki files and indices will be stored in this directory.</p>
+            <p className="mt-2 text-xs text-white/30">Select a folder or enter a path manually. On Android, use Internal Storage for best results.</p>
           </div>
         </section>
 

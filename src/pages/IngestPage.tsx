@@ -89,40 +89,7 @@ export default function IngestPage() {
         </section>
       </div>
 
-      {/* Status Overlay/Footer - Moved to bottom center as a sleek bar */}
-      {(isIngesting || progress || error) && (
-        <div className="fixed bottom-20 lg:bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-2xl z-50">
-          <div className={`rounded-full border px-6 py-3 shadow-2xl backdrop-blur-xl flex items-center gap-4 transition-all animate-in slide-in-from-bottom-5 ${
-            error ? "border-red-500/20 bg-red-900/40 text-red-100" : "border-aqua-cyan/20 bg-black/80 text-aqua-cyan"
-          }`}>
-            {isIngesting ? (
-              <Loader2 className="animate-spin shrink-0" size={18} />
-            ) : error ? (
-              <AlertCircle className="text-red-500 shrink-0" size={18} />
-            ) : (
-              <CheckCircle2 className="text-green-500 shrink-0" size={18} />
-            )}
-            
-            <div className="flex-1 truncate">
-              <span className="text-[10px] font-bold uppercase tracking-tighter opacity-50 mr-2">
-                {isIngesting ? "INGESTING" : error ? "ERROR" : "COMPLETED"}
-              </span>
-              <span className={`text-xs font-medium ${error ? "text-red-200" : "text-white"}`}>
-                {error || progress}
-              </span>
-            </div>
-
-            {!isIngesting && (
-                <button 
-                  onClick={reset}
-                  className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors"
-                >
-                  Dismiss
-                </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Status Overlay/Footer - REMOVED, now handled by GlobalStatusBar in App.tsx */}
     </div>
   );
 }

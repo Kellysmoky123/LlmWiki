@@ -188,7 +188,7 @@ export default function LintPage() {
   return (
     <div className="flex flex-col h-full bg-black text-white">
       {/* Header (Stay fixed at top) */}
-      <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 flex-shrink-0">
+      <div className="flex flex-col md:flex-row md:items-center justify-between px-8 py-6 border-b border-white/5 flex-shrink-0 gap-6">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-aqua-cyan/10 text-aqua-cyan">
             <ShieldCheck size={20} />
@@ -196,14 +196,14 @@ export default function LintPage() {
           <div>
             <h1 className="text-2xl font-bold text-white">Wiki Diagnostics</h1>
             <p className="text-xs text-white/40">
-              Full health scan · Orphan pages · Broken links · Contradictions · Gaps
+              Health scan · Orphans · Broken links · Contradictions · Gaps
             </p>
           </div>
         </div>
         <button
           onClick={() => runDiagnosis()}
           disabled={isDiagnosing || isFixing}
-          className="flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-black transition-all hover:bg-aqua-cyan disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-black transition-all hover:bg-aqua-cyan disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
         >
           {isDiagnosing ? (
             <Loader2 className="w-4 h-4 animate-spin" />
