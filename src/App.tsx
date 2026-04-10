@@ -159,7 +159,6 @@ function GlobalStatusBar() {
   const [visible, setVisible] = useState(false);
   const [isDone, setIsDone] = useState(false);
   
-  const isActive = ingest.isIngesting || query.isQuerying || (lint.status === 'diagnosing' || lint.status === 'fixing');
   const error = ingest.error || query.error || lint.error;
   const progress = ingest.progress || query.progress || (lint.status === 'fixing' ? 'Applying fixes...' : lint.status === 'diagnosing' ? 'Scanning wiki...' : '');
   const isWorking = ingest.isIngesting || query.isQuerying || lint.status === 'diagnosing' || lint.status === 'fixing';
