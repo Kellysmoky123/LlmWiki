@@ -28,6 +28,14 @@ tauri-plugin-dialog = "2.7.0"
 tauri-plugin-http = "2.5.8"
 tauri-plugin-os = "2"
 
+[profile.dev]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false # Disable heavy debug symbols for size
+
 [profile.release]
 opt-level = "z"     # Optimize for size
 lto = true          # Enable Link Time Optimization
