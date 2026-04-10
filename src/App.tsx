@@ -155,18 +155,14 @@ function App() {
 export default App;
 
 function GlobalStatusBar() {
-  const { 
-    ingestStatus, ingestProgress, ingestError, 
-    queryStatus, queryProgress, queryError, 
-    lintStatus, lintProgress, lintError 
-  } = useUIStore();
+  const { ingest, query, lint } = useUIStore();
   
-  const isActive = ingestStatus !== 'idle' || queryStatus !== 'idle' || lintStatus !== 'idle';
+  const isActive = ingest.isIngesting || query.isQuerying || lint.status !== 'idle';
   if (!isActive) return null;
 
-  const error = ingestError || queryError || lintError;
-  const progress = ingestProgress || queryProgress || lintProgress;
-  const isWorking = ingestStatus === 'ingesting' || queryStatus === 'searching' || lintStatus === 'diagnosing' || lintStatus === 'fixing';
+  const error = ingest.error || query.error || lint.error;
+  const progress = ingest.progress || query.progress || (lint.status === 'fixing' ? 'Applying fixes...' : lint.status === 'diagnosing' ? 'Scanning wiki...' : '');
+  const isWorking = ingest.isIngesting || query.isQuerying || lint.status === 'diagnosing' || lint.status === 'fixing';
 
   return (
     <div className="px-4 pb-2 lg:pb-0">
@@ -180,10 +176,10 @@ function GlobalStatusBar() {
         )}
         <div className="flex-1 min-w-0">
           <p className="text-[9px] font-black uppercase tracking-widest opacity-50">
-            {ingestStatus !== 'idle' ? 'Ingest Agent' : queryStatus !== 'idle' ? 'Query Agent' : 'Lint Agent'}
+            {ingest.isIngesting ? 'Ingest Agent' : query.isQuerying ? 'Query Agent' : 'Lint Agent'}
           </p>
           <p className="text-xs text-white truncate font-medium">
-            {error || progress || "Ready"}
+            {error || progress || "Agent ready"}
           </p>
         </div>
       </div>

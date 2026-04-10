@@ -1,12 +1,12 @@
 // src/pages/IngestPage.tsx
 import { useState } from "react";
-import { Upload, Link as LinkIcon, Video, FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, Link as LinkIcon, Video, FileText } from "lucide-react";
 import { useIngest } from "../hooks/useIngest";
 import { open } from "@tauri-apps/plugin-dialog";
 
 export default function IngestPage() {
   const [url, setUrl] = useState("");
-  const { ingest, isIngesting, progress, error, reset } = useIngest();
+  const { ingest, isIngesting } = useIngest();
 
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
