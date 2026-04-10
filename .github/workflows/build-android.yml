@@ -44,7 +44,7 @@ jobs:
         run: npx tauri android init --ci
 
       - name: Build APK (Release)
-        run: npx tauri android build --verbose
+        run: npx tauri android build --apk --verbose
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           NDK_HOME: /usr/local/lib/android/sdk/ndk/26.1.10909125
@@ -53,4 +53,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LLM-Wiki-Android-Release-APK
-          path: src-tauri/gen/android/app/build/outputs/apk/release/*.apk
+          path: src-tauri/gen/android/**/*.apk
